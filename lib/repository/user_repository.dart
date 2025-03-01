@@ -13,7 +13,7 @@ import 'package:brain_dev_tools/tools/dialog_view.dart';
 import 'package:brain_dev_tools/tools/tools_log.dart';
 import 'package:brain_dev_tools/tools/validation/type_safe_conversion.dart';
 import 'package:get/get.dart';
-import 'package:get/get_connect/http/src/status/http_status.dart';
+// import 'package:get/get_connect/http/src/status/http_status.dart';
 import 'package:brain_dev_tools/tools/utils/utils.dart';
 import 'package:brain_dev_tools/models/error/error_response.dart';
 import 'package:shared_preferences/shared_preferences.dart';

@@ -1,4 +1,3 @@
-import 'package:brain_dev_business/models/notification/response/message_notification_model.dart';
 
 abstract class SenderFirebaseMessageService
 {
