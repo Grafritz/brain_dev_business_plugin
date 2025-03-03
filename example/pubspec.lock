@@ -79,15 +79,15 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.0.0"
+    version: "1.0.4"
   brain_dev_tools:
     dependency: transitive
     description:
       name: brain_dev_tools
-      sha256: c78aa5d02a89526c1a86f0f7d30ee334da6ab2308c40dffaac186d84ba1a1c2c
+      sha256: b47bc1a46d13bff2d8363ccd0e037ea5039790c895a4003cb4ce3b95ca6e06a3
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.3"
+    version: "1.0.4"
   cached_network_image:
     dependency: transitive
     description:
