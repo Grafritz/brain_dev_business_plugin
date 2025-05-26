@@ -1,3 +1,7 @@
+## 1.0.6
+* Update Package...
+* shared_preferences: to 2.5.3
+
 ## 1.0.5
 * Update Package...
 * brain_dev_tools to 1.0.5

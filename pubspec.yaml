@@ -1,6 +1,6 @@
 name: brain_dev_business
 description: "brain_dev_business is a Flutter project interface for Google ads, Firebase Message Service, Local notification."
-version: 1.0.5
+version: 1.0.6
 homepage: https://github.com/Grafritz/brain_dev_business_plugin.git
 
 #  dart pub publish --dry-run   #// Vérifier avant chaque nouvelle version
@@ -23,7 +23,7 @@ dependencies:
   brain_dev_tools: ^1.0.5
 
   get: ^4.7.2
-  shared_preferences: ^2.5.2
+  shared_preferences: ^2.5.3
 
 
 dev_dependencies:
