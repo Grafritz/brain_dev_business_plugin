@@ -118,6 +118,9 @@ class BusinessController extends GetxController implements GetxService//, UserSe
   Future tryTokenAutoAuthenticate() async {
     try {
       await apiClient.getApiToken();
+      if (apiClient.bearerToken.isEmpty) {
+        await userRepository.tryTokenAutoAuthenticate();
+      }
       if (apiClient.bearerTokenExpirationDate.isNotEmpty) {
         var dateNow = TypeSafeConversion.nullSafeInt(Constant.format_yyyyMMdd.format(DateTime.now()));
         var dateExpiration = TypeSafeConversion.nullSafeInt(apiClient.bearerTokenExpirationDate);
