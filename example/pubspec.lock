@@ -79,14 +79,14 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.0.6"
+    version: "1.0.8"
   brain_dev_tools:
     dependency: transitive
     description:
       path: "/Users/jeanfritzduverseau/_Travaux/Projects/Flutter_Plugins/brain_dev_tools_plugin"
       relative: false
     source: path
-    version: "1.0.6"
+    version: "1.0.8"
   cached_network_image:
     dependency: transitive
     description:
