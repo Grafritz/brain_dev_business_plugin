@@ -110,28 +110,29 @@ class BusinessController extends GetxController implements GetxService//, UserSe
       logError(ex, trace: trace, position: 'UserBloc::setUserConnected()');
     }
   }
+  /// Appelé APRÈS la déconnexion locale (ex. fin de la session Keycloak, voir `brain_dev_keycloak_login`). Une erreur
+  /// n'empêche jamais la déconnexion : l'utilisateur est déjà déconnecté de l'application.
+  Future<void> Function()? onSignedOut;
+
   signOut(){
     setUserConnected(user: UserModel(id:0, connecterYN: false));
+    final hook = onSignedOut;
+    if (hook != null) {
+      hook().catchError((Object ex, StackTrace trace) {
+        logError(ex, trace: trace, position: 'BusinessController::signOut::onSignedOut');
+      });
+    }
   }
 
 
-  Future tryTokenAutoAuthenticate() async {
+  /// Renouvelle le jeton d'accès avant de parler au Middleware : `ApiClient.getApiToken()` renouvelle le jeton Keycloak
+  /// (ou obtient l'attestation de l'application pour l'usage sans compte, comme Mélodie). Plus aucun appel à
+  /// l'ancienne API (`auto-authenticate`).
+  Future refreshAccessToken() async {
     try {
       await apiClient.getApiToken();
-      if (apiClient.bearerToken.isEmpty) {
-        await userRepository.tryTokenAutoAuthenticate();
-      }
-      if (apiClient.bearerTokenExpirationDate.isNotEmpty) {
-        var dateNow = TypeSafeConversion.nullSafeInt(Constant.format_yyyyMMdd.format(DateTime.now()));
-        var dateExpiration = TypeSafeConversion.nullSafeInt(apiClient.bearerTokenExpirationDate);
-        if (dateNow >= dateExpiration) {
-          await userRepository.tryTokenAutoAuthenticate();
-        }
-      } else {
-        await userRepository.tryTokenAutoAuthenticate();
-      }
     } catch (ex, trace) {
-      logError(ex, trace: trace, position: 'tryTokenAutoAuthenticate()');
+      logError(ex, trace: trace, position: 'refreshAccessToken()');
     }
   }
 

@@ -113,7 +113,7 @@ class MessageNotification {
     image = (img.isNotEmpty)
         ? img.startsWith('http')
             ? jsonData['image']
-            : '${ApiConstantDev.urlWebServer}/storage/app/public/notification/${jsonData['image']}'
+            : ApiConstantDev.notificationImageUrl(img)
         : '';
     channel = ( (jsonData['channel']) == null )? ChannelModel(): ChannelModel.fromJson(  json.decode(jsonData['channel']) );
   }
@@ -131,7 +131,7 @@ class MessageNotification {
     if( img.isNotEmpty ){
       image = img.startsWith('http')
           ? img
-          : '${ApiConstantDev.urlWebServer}/storage/app/public/notification/$img';
+          : ApiConstantDev.notificationImageUrl(img);
     }
   }
 

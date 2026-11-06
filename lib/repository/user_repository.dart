@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:brain_dev_business/models/users_model.dart';
-import 'package:brain_dev_business/entities/dao/properties/users_property.dart';
 import 'package:brain_dev_tools/config/api/api_client.dart';
 import 'package:brain_dev_tools/I10n/localization_constants.dart';
 import 'package:brain_dev_tools/config/api/api_constant.dart';
@@ -160,44 +159,13 @@ class UserRepository {
 */
   int tentative = 0;
 
-  Future tryTokenAutoAuthenticate() async {
-    try {
-      String apiUrl = ApiConstantDev.urlApiAutoAuthenticate;
-      String packageName = TypeSafeConversion.nullSafeString( apiClient.packageInfo?.packageName);
-      logCat('tryTokenAutoAuthenticate() | packageName:$packageName ');
-      //region attributs
-      Map<String, String> param = <String, String>{};
-      param[UsersProperty.packageName.columnName] = packageName;//Constant.packageChantChoraleEtGroupe;
-      //endregion
-      var response = await apiClient.postData(apiUrl: apiUrl, data: param, fName: 'tryTokenAutoAuthenticate');
-      if (response.statusCode == HttpStatus.ok) {
-        var data = jsonDecode(response.body);
-        var bearerToken = data['jwtToken'];
-        apiClient.bearerToken = bearerToken;
-        apiClient.setApiToken(bearerToken);
-        logCat('tryTokenAutoAuthenticate() | packageName:$packageName | response.body: $data');
-        return data['jwtToken'];
-      } else {
-        tentative++;
-        if (tentative <= 3) {
-          await tryTokenAutoAuthenticate();
-        }
-      }
-    } catch (ex, trace) {
-      logError(ex, trace: trace, position: 'refreshDeviceToken');
-    }
-    return null;
-  }
-  //endregion
-
-//region [ UPDATE ]
+//region [ UPDATE : Middleware (PUT api/users/me/profile) ]
+  /// Met à jour mon profil. L'utilisateur est celui du jeton Keycloak : `userName` n'est jamais envoyé.
+  /// Correspondance (le modèle de l'application s'adapte à celui de LyricStream) : `nomComplet` = `displayName`,
+  /// `biographie` = `bio`, `photoPathUrl` = `avatarUrl`.
   Future updateProfile({ required UserModel user }) async {
     try {
-      String apiUrl = ApiConstantDev.urlApiUpdateProfile;
-      var data = user.toJson();
-      var jsonData =  jsonEncode(data);
-      logCat(jsonData);
-      var response = await apiClient.putData(apiUrl: apiUrl, data: data, fName: 'updateProfile');
+      var response = await apiClient.putData(apiUrl: ApiConstantDev.urlMiddlewareMyProfile, data: profileBody(user), fName: 'updateProfile');
       if (response.statusCode==HttpStatus.badRequest) {
         final data = jsonDecode(response.body);
         ErrorResponseModel errorResponse = ErrorResponseModel.fromJson(data);
@@ -205,9 +173,7 @@ class UserRepository {
         DialogView.showAlertDialog( msg: msg);
       }
       if (response.statusCode==HttpStatus.ok) {
-        final parsed = jsonDecode(response.body);
-        UserModel r = UserModel.fromJson(parsed);
-        return r;
+        return userFromProfile(jsonDecode(response.body), base: user);
       }
     } on SocketException {
       setConnectivity();
@@ -216,75 +182,38 @@ class UserRepository {
     }
     return null;
   }
-  Future updatePhotoProfile({ required UserModel user }) async {
-    try {
-      String apiUrl = ApiConstantDev.urlApiUpdateProfile;
-      var data = user.toJson();
-      var jsonData =  jsonEncode(data);
-      logCat(jsonData);
-      var response = await apiClient.putData(apiUrl: apiUrl, data: data, fName: 'updateProfile');
-      if (response.statusCode==HttpStatus.badRequest) {
-        final data = jsonDecode(response.body);
-        ErrorResponseModel errorResponse = ErrorResponseModel.fromJson(data);
-        String msg = ErrorResponseModel.messages(errorResponse: errorResponse);
-        DialogView.showAlertDialog( msg: msg);
-      }
-      if (response.statusCode==HttpStatus.ok) {
-        final parsed = jsonDecode(response.body);
-        UserModel r = UserModel.fromJson(parsed);
-        return r;
-      }
-    } on SocketException {
-      setConnectivity();
-    } catch (ex, trace) {
-      logError(ex, trace:trace, position: 'updatePhotoProfile');
-    }
-    return null;
+
+  /// Même route : l'image est une adresse (`avatarUrl`) dans le profil de LyricStream.
+  Future updatePhotoProfile({ required UserModel user }) => updateProfile(user: user);
+
+  /// Corps de `PUT api/users/me/profile`.
+  static Map<String, dynamic> profileBody(UserModel user) => {
+        if (user.nomComplet.trim().isNotEmpty) 'displayName': user.nomComplet.trim(),
+        'bio': user.biographie,
+        if (user.photoPathUrl.startsWith('http')) 'avatarUrl': user.photoPathUrl,
+      };
+
+  /// Profil de LyricStream (`UserProfileDto`) → modèle de l'application. [base] garde ce que le serveur ne connaît pas.
+  static UserModel userFromProfile(dynamic profile, {UserModel? base}) {
+    final user = base ?? UserModel();
+    if (profile is! Map) return user;
+    user.userName = TypeSafeConversion.nullSafeString(profile['userName']).isEmpty ? user.userName : TypeSafeConversion.nullSafeString(profile['userName']);
+    user.nomComplet = TypeSafeConversion.nullSafeString(profile['displayName']);
+    user.biographie = TypeSafeConversion.nullSafeString(profile['bio']);
+    final avatar = TypeSafeConversion.nullSafeString(profile['avatarUrl']);
+    user.photoPath = avatar;
+    user.photoPathUrl = avatar;
+    user.connecterYN = true;
+    return user;
   }
   //endregion
 
-  //region AUTHENTICATION / Login /  Register
+  //region AUTHENTICATION : remplacée par Keycloak
+  // La connexion, l'inscription et la connexion par fournisseur passent par Keycloak (`brain_dev_keycloak_login`) : plus
+  // aucun appel de connexion n'est fait par ce dépôt. Ces méthodes restent pour les écrans de l'ancien plugin de
+  // connexion, qui ne les atteignent plus ; elles ne font aucun appel réseau.
   Future loginRegisterProvider({required UserModel user}) async {
-    return await loginProviderModel(user: user, urlApi: ApiConstantDev.urlApiLoginRegisterProvider);
-  }
-
-  Future<UserModel?> loginProviderModel({required UserModel user, required String urlApi}) async {
-    try {
-      //region attributs
-      Map<String, String> param = <String, String>{};
-      param[UsersProperty.photoPath.columnName] = user.photoPath;
-      param[UsersProperty.userName.columnName] = user.userName;
-      param[UsersProperty.motDePasse.columnName] = user.motDePasse;
-      param[UsersProperty.nomComplet.columnName] = user.nomComplet;
-      param[UsersProperty.groupeUserId.columnName] = user.groupeUserId.toString();
-      param[UsersProperty.idAppFireBase.columnName] =  user.idAppFireBase.toString();
-      param[UsersProperty.idFirebaseToken.columnName] = user.idFirebaseToken.toString();
-      param[UsersProperty.userCreated.columnName] = user.userCreated;
-      param[UsersProperty.isEmailVerified.columnName] = user.isEmailVerified.toString();
-      param[UsersProperty.connectFrom.columnName] = dataFrom;
-      //endregion
-
-      var response = await apiClient.postData(apiUrl: urlApi, data: param, fName: 'loginProviderModel');
-      if (response.statusCode == HttpStatus.ok) {
-        var data = json.decode(response.body);
-        UserModel user = UserModel.fromJson(data);
-        user.connecterYN = true;
-        return user;
-      } else if (response.statusCode == HttpStatus.badRequest) {
-        logCat('msg_TraitementImpossible');
-      } else if (response.statusCode == HttpStatus.notFound) {
-        logCat('msg_no_record');
-      } else {
-        logCat('msg_TraitementImpossible');
-      }
-    } on SocketException catch (ex, trace) {
-      setConnectivity();
-      logError(ex, trace: trace, position: 'login');
-    } on Exception catch (ex, trace) {
-      logError(ex, trace: trace, position: 'login');
-    } catch (ex, trace) {
-      logError(ex, trace: trace, position: 'login');
-    }
+    logCat('loginRegisterProvider : remplacé par Keycloak, aucun appel');
     return null;
   }
   //endregion
@@ -326,36 +255,23 @@ class UserRepository {
     return user;
   }
 
-  Future<MessageModel> deleteAccountOnTheCloud({required String raison}) async {
+  /// Supprime mon compte LyricStream et mes données privées (`DELETE api/users/me`) ; le contenu publié reste au
+  /// catalogue. [raison] n'est pas envoyée (le Middleware n'en garde pas).
+  Future<MessageModel> deleteAccountOnTheCloud({required String raison}) => _deleteMyAccount('deleteAccountOnTheCloud');
+
+  /// Même route : LyricStream n'a plus de distinction entre « supprimer le compte » et « supprimer toutes les données ».
+  Future<MessageModel> deleteAllDataOnTheCloud({required String raison}) => _deleteMyAccount('deleteAllDataOnTheCloud');
+
+  Future<MessageModel> _deleteMyAccount(String fName) async {
     MessageModel message = MessageModel();
     try {
-      var user = userConnected;
-      String apiUrl = ApiConstantDev.urlApiUserByUserName(userName: user.userName);
-      //region [ Attributs ]
-      Map<String, String> param = <String, String>{};
-      param[UsersProperty.raison.columnName] = raison;
-      param[UsersProperty.userName.columnName] = user.userName;
-      //var jsonEncodeStr = jsonEncode(param);
-      //endregion
-
-      var response = await apiClient.deleteData(
-          apiUrl: apiUrl, data: param, fName: 'deleteAccountOnTheCloud');
-
+      var response = await apiClient.deleteData(apiUrl: ApiConstantDev.urlMiddlewareMe, fName: fName);
       message.statusCode = response.statusCode;
-      if (response.statusCode == HttpStatus.ok) {
-        try {
-          message.message = 'msg_operation_succes'.tr;
-          message.isSuccess = true;
-          return message;
-        } catch (ex, trace) {
-          logError(ex, trace: trace);
-          message.message = '${tr('msg_TraitementImpossible')}';
-          message.isSuccess = false;
-          return message;
-        }
+      if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.noContent) {
+        message.message = 'msg_operation_succes'.tr;
+        message.isSuccess = true;
       } else if (response.statusCode == HttpStatus.unauthorized) {
         message.message = '${gtr('msg_access_key_has_expired')}';
-        //UserDaoPref().logOut();
         message.isRequiredToReLogin = true;
         message.isSuccess = false;
       } else {
@@ -366,62 +282,6 @@ class UserRepository {
       setConnectivity();
       logError(ex, trace: trace);
       message.message = '${gtr('msg_No_Internet_connection')}';
-      message.isSuccess = false;
-    } on Exception catch (ex, trace) {
-      logError(ex, trace: trace);
-      message.message = '${gtr('msg_TraitementImpossible')}';
-      message.isSuccess = false;
-    } catch (ex, trace) {
-      logError(ex, trace: trace);
-      message.message = '${gtr('msg_TraitementImpossible')}';
-      message.isSuccess = false;
-    }
-    return message;
-  }
-
-  Future<MessageModel> deleteAllDataOnTheCloud({required String raison}) async {
-    MessageModel message = MessageModel();
-    try {
-      var user = await getUserConnected();
-      String apiUrl = ApiConstantDev.urlApiDeleteAllDataUser;
-      //region [ Attributs ]
-      Map<String, String> param = <String, String>{};
-      param[UsersProperty.raison.columnName] = raison;
-      param[UsersProperty.userName.columnName] = user.userName;
-      //var jsonEncodeStr = jsonEncode(param);
-      //endregion
-      var response = await apiClient.postData(
-          apiUrl: apiUrl, data: param, fName: 'deleteAllDataOnTheCloud');
-
-      message.statusCode = response.statusCode;
-      if (response.statusCode == HttpStatus.ok) {
-        try {
-          message.message = 'msg_operation_succes'.tr;
-          message.isSuccess = true;
-          return message;
-        } catch (ex, trace) {
-          logError(ex, trace: trace);
-          message.message = '${tr('msg_TraitementImpossible')}';
-          message.isSuccess = false;
-          return message;
-        }
-      } else if (response.statusCode == HttpStatus.unauthorized) {
-        message.message = '${gtr('msg_access_key_has_expired')}';
-        //UserDaoPref().logOut();
-        message.isRequiredToReLogin = true;
-        message.isSuccess = false;
-      } else {
-        message.message = '${gtr('msg_TraitementImpossible')}';
-        message.isSuccess = false;
-      }
-    } on SocketException catch (ex, trace) {
-      setConnectivity();
-      logError(ex, trace: trace);
-      message.message = '${gtr('msg_No_Internet_connection')}';
-      message.isSuccess = false;
-    } on Exception catch (ex, trace) {
-      logError(ex, trace: trace);
-      message.message = '${gtr('msg_TraitementImpossible')}';
       message.isSuccess = false;
     } catch (ex, trace) {
       logError(ex, trace: trace);
@@ -449,16 +309,15 @@ class UserRepository {
     return false;
   }
 
+  /// Mon profil (`GET api/users/me`) ou celui d'un membre par son pseudo (`GET api/users/@pseudo`) si [isPublic].
   Future getProfileInfo({required String userId, required bool isPublic }) async {
     try {
-      String apiUrl = ApiConstantDev.urlApiGetProfilUserData(userName: userId);
-      if( isPublic ){
-        apiUrl = ApiConstantDev.urlApiGetProfilPublicUserData(userName: userId);
-      }
+      String apiUrl = isPublic
+          ? '${ApiConstantDev.urlMiddleware}api/users/@${Uri.encodeComponent(userId)}'
+          : '${ApiConstantDev.urlMiddleware}api/users/me';
       var response = await apiClient.getData( apiUrl, fName: (isPublic)?'GetProfilPublicInfo':'getUserConnectedProfileInfo');
       if (response.statusCode==HttpStatus.ok) {
-        var data = json.decode(response.body);
-        return UserModel.fromJson(data);
+        return userFromProfile(json.decode(response.body));
       }
     } on SocketException {
       setConnectivity();

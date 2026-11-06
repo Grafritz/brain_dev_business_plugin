@@ -57,7 +57,7 @@ class MessageNotificationModel {
     imagePath = (img.isNotEmpty)
         ? img.startsWith('http')
             ? jsonData['imagePath']
-            : '${ApiConstantDev.urlServerImageNotification}/$img'
+            : ApiConstantDev.notificationImageUrl(img)
         : '';
     payload = ((jsonData['payload']) == null)
         ? PayLoadModel()
@@ -81,7 +81,7 @@ class MessageNotificationModel {
     if (img.isNotEmpty) {
       imagePath = img.startsWith('http')
           ? img
-          : '${ApiConstantDev.urlServerImageNotification}/$img';
+          : ApiConstantDev.notificationImageUrl(img);
     }
   }
 

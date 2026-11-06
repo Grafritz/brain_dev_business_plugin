@@ -1,6 +1,6 @@
 name: brain_dev_business
 description: "brain_dev_business is a Flutter project interface for Google ads, Firebase Message Service, Local notification."
-version: 1.0.11
+version: 1.0.12
 homepage: https://github.com/Grafritz/brain_dev_business_plugin.git
 
 #  dart pub publish --dry-run   #// Vérifier avant chaque nouvelle version
@@ -19,18 +19,27 @@ dependencies:
   web: ^1.1.1
   plugin_platform_interface: ^2.1.8
 
+  # Contrats partagés avec les plugins (ré-exportés ici) : voir brain_dev_core.
+  brain_dev_core:
+    path: ../brain_dev_core_plugin
+
   # clear && flutter clean && rm -rf ~/.pub-cache/git && flutter pub get
-  brain_dev_tools: ^1.0.11
+  brain_dev_tools:
+    path: ../brain_dev_tools_plugin
     #path: /Users/jeanfritzduverseau/_Travaux/Projects/Flutter_Plugins/brain_dev_tools_plugin
 
   get: ^4.7.2
   shared_preferences: ^2.5.3
 
 
+# `ApiClient.externalTokenReplacesLegacy` n'est pas encore publié sur pub.dev : chemin local jusqu'à la publication de
+# brain_dev_tools > 1.0.11 (ignoré quand ce paquet est une dépendance : l'application porte son propre override).
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  device_info_plus: ^11.4.0 # tests : ApiClient
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
